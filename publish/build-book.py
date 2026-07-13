@@ -247,13 +247,30 @@ def toc_replace(the_match):
 	return generate_toc(the_match.string[start_pos:], depth=depth, start=start_depth, classes=classes, ordered=ordered, plain=plain, output=output)
 
 
+def split_spaces_outwith_quotes(arg_line):
+	# Splits a string on spaces, but not if those spaces occur within "..." quotes.
+	# We use this to ensure that extra_args for pandoc are properly passed to the invocation.
+	pattern = r'\s(?=(?:[^"]*"[^"]*")*[^"]*$)'
+	result = re.split(pattern, arg_line)
+	result = [item.strip() for item in result]
+	#print(f"INPUT: {arg_line}\nSPLIT: {result}")
+	return result
+
+
 class MGArgumentParser(argparse.ArgumentParser):
 	def convert_arg_line_to_args(self, arg_line):
+		
 		# Ignore whitespace or #-commented lines
 		if (re.match(r"^[\s]*#", arg_line) or 
 				re.match(r"^[\s]*$", arg_line)):
 			return []
-		# Split on first whitespace to allow full arg+vals per line.
+		
+		# Check for long-format option ("=" style)
+		# Example: --metadata=subtitle:"Supernatural Stories"
+		if re.search(r"^\S*=", arg_line):
+			return re.split(r"=", arg_line, maxsplit=1)
+		
+		# Split on whitespace.
 		#return re.split(r"[ =]", arg_line, maxsplit=1)
 		return re.split(r"\s+", arg_line, maxsplit=1)
 
@@ -761,7 +778,8 @@ if "css" in json_contents:
 if pandoc_verbose:
 	pandoc_post_args.append("--verbose")
 if extra_args:
-	pandoc_post_args.extend(extra_args.split())
+	#pandoc_post_args.extend(extra_args.split())
+	pandoc_post_args.extend(split_spaces_outwith_quotes(extra_args))
 
 for this_format in output_formats:
 	if not this_format in valid_output_formats and this_format != "all":
